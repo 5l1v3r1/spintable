@@ -1,0 +1,8 @@
+[package]
+name = "koop"
+version = "0.1.0"
+authors = ["ex0dus-0x <ex0dus@codemuch.tech>"]
+
+[dependencies]
+mpv = "0.2"
+clap = "2.26.0"
