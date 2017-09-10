@@ -1,28 +1,35 @@
 pub mod stream {
     
     use std::process::Command;
-    use std::path::Path;
     use std::fs;
-
+    use regex::Regex;
     
     pub enum YTReturn {
         URL,
         StringTitle,
-      // Playlist, not yet covered, but most be able to parse.
+        Playlist,
     }
-
          
-    pub fn process(target: &str) -> YTReturn {
-        
+    pub fn process_target(target: &str) -> YTReturn {        
         let check_str = "https://";
+        
         match target.starts_with(check_str){
-            false => YTReturn::URL,
-            true =>  YTReturn::StringTitle,
+            true => {
+                let re = Regex::new(r"/^.*(youtu.be\/|list=)([^#\&\?]*).*/").unwrap();
+                if re.is_match(target){
+                    YTReturn::Playlist
+                }
+                else {
+                    YTReturn::URL
+                }    
+            },
+            false =>  YTReturn::StringTitle,
         }
     }
 
     pub fn download_mp3(target: &str) -> Result<(), &'static str,>{
-            
+        use std::path::Path;
+        
         let path = Path::new("downloads/");
         match path.exists(){
             false => {
