@@ -2,12 +2,11 @@ pub mod stream {
     
     use std::process::Command;
     use std::fs;
-    use regex::Regex;
+    //use regex::Regex;
     
     pub enum YTReturn {
         URL,
         StringTitle,
-        Playlist,
     }
          
     pub fn process_target(target: &str) -> YTReturn {        
@@ -15,13 +14,13 @@ pub mod stream {
         
         match target.starts_with(check_str){
             true => {
-                let re = Regex::new(r"/^.*(youtu.be\/|list=)([^#\&\?]*).*/").unwrap();
-                if re.is_match(target){
-                    YTReturn::Playlist
-                }
-                else {
+                //let re = Regex::new(r"/^.*(youtu.be\/|list=)([^#\&\?]*).*/").unwrap();
+                //if re.is_match(target){
+                //    YTReturn::Playlist
+                //}
+                //else {
                     YTReturn::URL
-                }    
+                //}    
             },
             false =>  YTReturn::StringTitle,
         }
@@ -30,11 +29,11 @@ pub mod stream {
     pub fn download_mp3(target: &str) -> Result<(), &'static str,>{
         use std::path::Path;
         
-        let path = Path::new("downloads/");
+        let path = Path::new("/root/.spintable/downloads/");
         match path.exists(){
             false => {
                 println!("Directory doesn't exist. Creating.");
-                let _ = fs::create_dir("downloads/"); 
+                let _ = fs::create_dir("/root/.spintable/downloads/"); 
             },
             true => {},
         }
@@ -43,7 +42,7 @@ pub mod stream {
         
         let target = target.as_ref();
         let out = Command::new("youtube-dl")
-            .current_dir("downloads/")
+            .current_dir("/root/.spintable/downloads/")
             .args(&[
                 "-x", 
                 "--audio-quality", "0",

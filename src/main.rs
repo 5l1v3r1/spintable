@@ -1,7 +1,11 @@
 extern crate clap;
 extern crate serde_json;
+extern crate serde;
 extern crate curl;
 extern crate regex;
+
+#[macro_use]
+extern crate serde_derive;
 
 mod youtube;
 mod stream;
@@ -9,7 +13,8 @@ mod stream;
 use clap::{App, Arg, AppSettings};
 use std::process;
 use std::error::Error;
-use std::fs::File;
+use std::fs;
+use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::path::Path;
 
@@ -17,7 +22,17 @@ use stream::stream::*;
 use youtube::youtube::*;
 
 
+static TARGET_URL: &'static str = "https://www.youtube.com/watch?v=";
+
 fn main(){
+    
+    // Create a new directory
+    let path = Path::new("/root/.spintable/");
+    match path.exists(){
+        true => {},
+        false => { let _ = fs::create_dir("/root/.spintable"); },
+    }
+    
     let args = App::new("spintable")
         .version("0.2")
         .version_short("v")
@@ -35,21 +50,26 @@ fn main(){
                 
     let target = args.value_of("target").unwrap();
     
+    let mut url = String::new();
+    
     match process_target(&target){
         YTReturn::StringTitle => {
             
             // First, get the API file opened and the content stored and ready
             // for request.
+                        
+            let path = Path::new("/root/.spintable/api.txt");
             
-            let path = Path::new("api.txt");
             let display = path.display();
-            let mut file = match File::open(&path){
+            let mut file = match OpenOptions::new().read(true).write(true).create(true).open(&path){
                 Err(e) => {
                     println!("[ERROR] Couldn't open {}. Reason: {}", display,
                     e.description());
                     process::exit(1);
                 },
-                Ok(file) => file,
+                Ok(file) => {
+                    file
+                },
             };
             
             let mut content = String::new();
@@ -57,36 +77,40 @@ fn main(){
                 Err(e) => {
                     println!("[ERROR] Couldn't read {}. Reason: {}", display,
                     e.description());
+                    println!("API File may be empty. Place key at /root/.spintable/api.txt");
                     process::exit(1);
                 },
                 Ok(_) => {},
             }
-            
+                        
             if let Ok(res) = send_request(target, &content) {
-                let result = match json_parse(&res) {
+                match json_parse(&res) {
                     Ok(v) =>  {
-                        println!("{:?}", v["items"]);
+                        url = String::new() + TARGET_URL + &v.items[0].id.video_id;
                     },
                     Err(e) => {
                         println!("[ERROR] {:?}", e);
                     },
                 };
                 
-                
             } else if let Err(e) = send_request(target, &content) {
                 println!("[ERROR] Code: {:?} ", e);
                 process::exit(1);
             }
         },
-        _ => {}
+        _ => {
+            url = String::new() +  &target;
+        }
     }
     
+    println!("{:?}", url);
+    
     if args.is_present("download"){
-        if let Ok(()) = download_mp3(target){
+        if let Ok(()) = download_mp3(&url){
             println!("Successfully downloaded! Now streaming...");
         }
     }
-    if let Ok(()) = start_streaming(target){
+    if let Ok(()) = start_streaming(&url){
         println!("Successfully streamed!");
         process::exit(0);
     }

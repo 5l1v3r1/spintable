@@ -1,8 +1,6 @@
-// Use this module to grab Youtube Data API.
-
 pub mod youtube {
     use serde_json;
-    use serde_json::{Value, Error};
+    use serde_json::Error;
     use curl::easy::{Easy2, Handler, WriteError};
     
     static URL: &'static str = "https://www.googleapis.com/youtube/v3/search";
@@ -27,7 +25,7 @@ pub mod youtube {
         let params = String::new() + URL + "?q=" + &query
             + "&maxResults=1" + "&part=snippet" + "&key=" 
             + api;
-
+            
         easy.url(&params).unwrap();
         easy.perform().unwrap();
         match easy.response_code().unwrap() {
@@ -40,9 +38,25 @@ pub mod youtube {
         }
     }
     
+    #[derive(Serialize, Deserialize)]
+    pub struct Id {
+      #[serde(rename="videoId")]
+      pub video_id: String,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    pub struct Items {
+      pub id: Id,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    pub struct RootInterface {
+      pub items: Vec<Items>,
+    }
     
-    pub fn json_parse(data: &str) -> Result<Value, Error>{
-        let v: Value = serde_json::from_str(data).unwrap();
+    pub fn json_parse(data: &str) -> Result<RootInterface, Error>{
+        let v: RootInterface = serde_json::from_str(data).unwrap();
+        //println!("{:?}", v.items[0].id.video_id);
         
         Ok(v)
     }
