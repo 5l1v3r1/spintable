@@ -22,8 +22,13 @@ To install:
 
     cargo build
 
+When complete, obtain a [Youtube Data API](https://developers.google.com/youtube/v3/) key.
+
+    echo "YOUR_API_KEY_HERE" >> ~/.spintable/api.txt
 
 ## Usage
+
+### Help
 
     USAGE:
     spintable [FLAGS] [target]
@@ -35,6 +40,7 @@ To install:
 
     ARGS:
     <target>    Sets the video to be played
+
 
 ### Use with URL
 

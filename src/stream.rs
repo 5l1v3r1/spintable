@@ -1,8 +1,7 @@
 pub mod stream {
-    
     use std::process::Command;
     use std::fs;
-    //use regex::Regex;
+    use mpv;
     
     pub enum YTReturn {
         URL,
@@ -14,13 +13,7 @@ pub mod stream {
         
         match target.starts_with(check_str){
             true => {
-                //let re = Regex::new(r"/^.*(youtu.be\/|list=)([^#\&\?]*).*/").unwrap();
-                //if re.is_match(target){
-                //    YTReturn::Playlist
-                //}
-                //else {
-                    YTReturn::URL
-                //}    
+                YTReturn::URL
             },
             false =>  YTReturn::StringTitle,
         }
@@ -55,19 +48,41 @@ pub mod stream {
         Ok(())
     }
 
-    pub fn start_streaming(target: &str) -> Result<(), &'static str>{
+    pub fn start_streaming(target: &str) -> Result<&'static str, mpv::Error>{
         
         println!("Streaming {:?}! Enjoy!", target);
         
-        let target = target.as_ref();
-        let out = Command::new("mpv")
-            .args(&[target, "--no-video"])
-            .output()
-            .expect("failed to execute process");
+        let mut mpv_builder = mpv::MpvHandlerBuilder::new().expect("Failed to init MPV builder");        
+        mpv_builder.set_option("sid","no").unwrap();
+        mpv_builder.set_option("video", "no").expect("Failed to set option 'video' to 'no'");        
+        mpv_builder.set_option("ytdl", true).unwrap();
+        mpv_builder.set_option("osc", true).unwrap();
+
+        let mut mpv = mpv_builder.build().expect("Failed to build MPV handler");
+        mpv.command(&["loadfile", target])
+            .expect("Error loading file");
         
-        let _ = out.stdout;
+        mpv.set_property("loop", "1").unwrap();
+        mpv.set_property("speed", "1").unwrap();
         
-        Ok(())
+        'main: loop {
+           while let Some(event) = mpv.wait_event(0.0) {
+               use mpv::Event::*;
+               match event {
+                   Shutdown => { break 'main; },
+                   StartFile => { println!("Starting stream..."); },
+                   FileLoaded => { println!("File loaded..."); },
+                   EndFile(e) => {
+                      if let Err(msg) = e {
+                          return Err(msg);
+                      } else {
+                          break 'main;
+                      }
+                  },
+                   _ => {}
+               };
+           }
+       }
+       Ok("Successfully streamed!")
     }
-    
 }
