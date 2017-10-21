@@ -1,10 +1,10 @@
-# koop
+# spintable
 
 Stream Youtube music videos through the terminal.
 
 ## Introduction
 
-This application provides a level of abstraction over the `ffmpeg`, `youtube-dl` and `mpv` audio/video applications. The current features are quite primitive, but will be greatly improved.
+__spintable__ is a terminal-based application that enables users to play Youtube music videos over the terminal! Search strings are supported, as well as downloading! 
 
 ## Features 
 
@@ -14,9 +14,10 @@ This application provides a level of abstraction over the `ffmpeg`, `youtube-dl`
 
 ## Installation
 
-Just a few dependencies are needed.
+__spintable__ is based off of __mpv__, as well as 
+__youtube-dl__ and the Youtube Data Searc API (found [here](https://developers.google.com/youtube/v3/)). While `cargo` and the Rust toolchain makes it easy to get dependencies, you still do need a few.
 
-  apt install mpv libmpv1 youtube-dl ffmpeg
+  apt install libmpv1 youtube-dl
   
 To install:
 
