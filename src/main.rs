@@ -4,8 +4,7 @@ extern crate mpv;
 extern crate pbr;
 extern crate serde_json;
 extern crate serde;
-extern crate curl;
-extern crate libc;
+extern crate reqwest;
 
 #[macro_use]
 extern crate serde_derive;
@@ -13,20 +12,15 @@ extern crate serde_derive;
 mod youtube;
 mod stream;
 
-use clap::{App, Arg, AppSettings};
-use std::process;
 use std::error::Error;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::path::Path;
+use std::env;
+
 use termion::clear;
-
-use stream::stream::*;
-use youtube::youtube::*;
-
-// Represents basis for URL before attaching videoID
-static TARGET_URL: &'static str = "https://www.youtube.com/watch?v=";
+use clap::{App, Arg, AppSettings};
 
 fn main(){
     
@@ -34,44 +28,51 @@ fn main(){
     println!("{}", clear::All);
     
     // Stores api key from /root/.spintable/api.txt
-    let mut content = String::new();
+    let mut content: String = String::new();
+
+    // Store $HOME environmental variable
+    let home_env: String = match env::home_dir() {
+        Some(path) => String::from(path.to_str().unwrap()),
+        None => String::from("/root"),
+    };
+
+    // Final path to API keys
+    let api_path: String = format!("{}/.spintable/api.txt", home_env);
     
     // Create a new directory if not already exists.
-    let path = Path::new("/root/.spintable/");
+    let path = Path::new(api_path.as_str());
+
+    // If the path already exists
     match path.exists(){
         true => {
+            
             // First, get the API file opened and the content stored and ready
             // for request.            
-            let path = Path::new("/root/.spintable/api.txt");
-            
             let display = path.display();
             let mut file = match OpenOptions::new().read(true).write(true).create(true).open(&path){
                 Err(e) => {
-                    println!("[ERROR] Couldn't open {}. Reason: {}", display,
+                    panic!("[ERROR] Couldn't open {}. Reason: {}", display,
                     e.description());
-                    process::exit(1);
                 },
-                Ok(file) => {
-                    file
-                },
+                Ok(file) => file
             };
             
+            // Attempt to write API data to content String
             match file.read_to_string(&mut content){
                 Err(e) => {
-                    println!("[ERROR] Couldn't read {}. Reason: {}", display,
+                    println!("API File may be empty. Place key at $HOME/.spintable/api.txt");
+                    panic!("[ERROR] Couldn't read {}. Reason: {}", display,
                     e.description());
-                    println!("API File may be empty. Place key at /root/.spintable/api.txt");
-                    process::exit(1);
                 },
                 Ok(_) => {},
             }
         },
         false => { let _ = fs::create_dir("/root/.spintable"); },
     }
-    
+        
     // Argument parsing
     let args = App::new("spintable")
-        .version("0.2")
+        .version("0.3")
         .version_short("v")
         .setting(AppSettings::ArgRequiredElseHelp)
         .author("Alan <ex0dus@codemuch.tech>")
@@ -87,52 +88,40 @@ fn main(){
         .get_matches();
                 
     let target = args.value_of("target").unwrap();
-    
-    // Create a heap-allocated string for later consumption
-    let mut url = String::new();
-    
-    // Important, used to determine if we actually need to call API or not.
-    match process_target(&target){
-        
-        // If it is just a string representing the video's title...
-        YTReturn::StringTitle => {
-                        
-            if let Ok(res) = send_request(target, &content) {
-                match json_parse(&res) {
-                    Ok(v) =>  {
-                        url = String::new() + TARGET_URL + &v.items[0].id.video_id;
-                    },
-                    Err(e) => {
-                        println!("[ERROR] {:?}", e);
-                    },
-                };
-                
-            } else if let Err(e) = send_request(target, &content) {
-                println!("[ERROR] Code: {:?} ", e);
-                process::exit(1);
-            }
-        },
-        _ => {
-            url = String::new() +  &target;
-        }
+
+    // Create Youtube object
+    let mut yt = match stream::Youtube::new(target){
+        Ok(res) => res,
+        Err(e) => panic!("[ERROR] {}", e)
+    };
+
+    let check_query = yt.search_query.clone();
+
+    // If a search query is actually present...
+    if let Some(query) = check_query {
+
+        println!("{}", query);
+        // Send a request to Data API
+        let video = youtube::send_request(query, &content);
+
+        // Add url to struct
+        yt.add_url(&video.items[0].id.video_id);
     }
-    
-        
+
+    // Check if download is necessary
     if args.is_present("download"){
-        if let Ok(()) = download_mp3(&url){
-            println!("Successfully downloaded! Now streaming...");
+        yt.download_mp3(home_env);
+    }   
+
+    loop {
+        match yt.start_streaming(){ 
+            Ok(r) => {
+                println!("{}", r);
+            }
+            Err(e) => {
+                panic!("[ERROR] {:?}", e);
+            }
         }
+
     }
-    
-    match start_streaming(&url){ 
-        Ok(r) => {
-            println!("{}", r);
-            process::exit(0);
-        }
-        Err(e) => {
-            println!("[ERROR] {:?}", e);
-            process::exit(1);
-        }
-    }
-    
 }
