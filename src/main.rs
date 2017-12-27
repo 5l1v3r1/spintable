@@ -1,7 +1,6 @@
 extern crate clap;
 extern crate termion;
 extern crate mpv;
-extern crate pbr;
 extern crate serde_json;
 extern crate serde;
 extern crate reqwest;
