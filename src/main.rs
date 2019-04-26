@@ -22,10 +22,10 @@ use termion::clear;
 use clap::{App, Arg, AppSettings};
 
 fn main(){
-    
+
     // Clear the entirety of the screen
     println!("{}", clear::All);
-    
+
     // Stores api key from /root/.spintable/api.txt
     let mut content: String = String::new();
 
@@ -37,16 +37,16 @@ fn main(){
 
     // Final path to API keys
     let api_path: String = format!("{}/.spintable/api.txt", home_env);
-    
+
     // Create a new directory if not already exists.
     let path = Path::new(api_path.as_str());
 
     // If the path already exists
     match path.exists(){
         true => {
-            
+
             // First, get the API file opened and the content stored and ready
-            // for request.            
+            // for request.
             let display = path.display();
             let mut file = match OpenOptions::new().read(true).write(true).create(true).open(&path){
                 Err(e) => {
@@ -55,7 +55,7 @@ fn main(){
                 },
                 Ok(file) => file
             };
-            
+
             // Attempt to write API data to content String
             match file.read_to_string(&mut content){
                 Err(e) => {
@@ -68,7 +68,7 @@ fn main(){
         },
         false => { let _ = fs::create_dir("/root/.spintable"); },
     }
-        
+
     // Argument parsing
     let args = App::new("spintable")
         .version("0.3")
@@ -85,7 +85,7 @@ fn main(){
             .long("download")
             .help("Saves MP3 of downloaded video"))
         .get_matches();
-                
+
     let target = args.value_of("target").unwrap();
 
     // Create Youtube object
@@ -110,10 +110,10 @@ fn main(){
     // Check if download is necessary
     if args.is_present("download"){
         yt.download_mp3(home_env);
-    }   
+    }
 
     loop {
-        match yt.start_streaming(){ 
+        match yt.start_streaming(){
             Ok(r) => {
                 println!("{}", r);
             }
