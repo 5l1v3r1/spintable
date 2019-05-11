@@ -39,10 +39,10 @@ pub struct RootInterface {
 }
 
 
-pub fn send_request(target: String, api: &String) -> RootInterface {
+pub fn send_request(target: &str, api: &String) -> RootInterface {
     let client = Client::new();
-    let query = str::replace(target.as_str(), " ", "%20");
+    let query = str::replace(target, " ", "%20");
     let params = format!("{}?q={}&maxResults=1&part=snippet&key={}", API_URL, &query, api);
-    let res = client.get(params.as_str()).send().unwrap();
+    let mut res = client.get(params.as_str()).send().unwrap();
     res.json().unwrap()
 }

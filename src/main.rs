@@ -1,8 +1,7 @@
 extern crate clap;
 extern crate mpv;
 extern crate reqwest;
-
-#[macro_use] extern crate serde;
+extern crate serde;
 
 mod youtube;
 mod stream;
@@ -15,14 +14,13 @@ use std::io::prelude::*;
 
 use clap::{App, Arg, AppSettings};
 
-fn main(){
+fn main() {
 
     // get $HOME and create config dir path
-    let home_env: String = match env::var_os("HOME") {
+    let dir_path: String = match env::var_os("HOME") {
         Some(path) => format!("{}/.spintable", path.to_str().unwrap()),
         None       => { panic!("no $HOME variable set"); }
     };
-    let dir_path: String = format!("{}/.spintable", home_env);
     let path = Path::new(dir_path.as_str());
 
     // create path if not exists
@@ -37,13 +35,13 @@ fn main(){
                     .create(true)
                     .open(&path).unwrap();
 
-    // read to string
-    let mut content = String::new();
-    if let Err(e) = file.read_to_string(&mut content) {
+    // read api key string
+    let mut api_key = String::new();
+    if let Err(e) = file.read_to_string(&mut api_key) {
         panic!("{}", e.description());
     }
 
-    // Argument parsing
+    // argument parsing
     let args = App::new("spintable")
         .version("0.3")
         .version_short("v")
@@ -62,37 +60,20 @@ fn main(){
 
     // create Youtube object
     let target = args.value_of("target").unwrap();
-    let mut yt = match stream::Youtube::new(target) {
+    let yt = match stream::Youtube::new(target, api_key, dir_path) {
         Ok(res) => res,
-        Err(e) => panic!("[ERROR] {}", e)
+        Err(e) => panic!("{}", e)
     };
 
-    let check_query = yt.search_query.clone();
-
-    // If a search query is actually present...
-    if let Some(query) = check_query {
-
-        println!("{}", query);
-        // Send a request to Data API
-        let video = youtube::send_request(query, &content);
-
-        // Add url to struct
-        yt.add_url(&video.items[0].id.video_id);
-    }
-
     // Check if download is necessary
-    if args.is_present("download"){
-        yt.download_mp3(home_env);
+    if args.is_present("download") {
+        yt.download_mp3();
     }
 
     loop {
-        match yt.start_streaming(){
-            Ok(r) => {
-                println!("{}", r);
-            }
-            Err(e) => {
-                panic!("[ERROR] {:?}", e);
-            }
+        match yt.start_streaming() {
+            Ok(r)   => { println!("{:?}", r) },
+            Err(e)  => { panic!("{:?}", e) },
         }
     }
 }
