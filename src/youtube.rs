@@ -1,6 +1,12 @@
+//!
+//! youtube.rs
+//!
+//!     Defines main interface for interacting with YouTube
+//!     Data API through reqwest::Client.
 use reqwest::Client;
+use serde::{Serialize, Deserialize};
 
-// This is the default absolute url for making requests to the Data API
+/// this is the default absolute url for making requests to the Data API
 static API_URL: &'static str = "https://www.googleapis.com/youtube/v3/search";
 
 
@@ -32,21 +38,11 @@ pub struct RootInterface {
     pub items: Vec<Items>,
 }
 
+
 pub fn send_request(target: String, api: &String) -> RootInterface {
-
-    // Create new HTTP GET client
     let client = Client::new();
-
-    // Replace spaces with %20 character
     let query = str::replace(target.as_str(), " ", "%20");
-
-    // Create a string that concatenates pieces of the request
     let params = format!("{}?q={}&maxResults=1&part=snippet&key={}", API_URL, &query, api);
-
-    // Send request, retrieve text from response.
-    let res = client.get(params.as_str())
-                .send().unwrap()
-                .json().unwrap();
-
-    res
+    let res = client.get(params.as_str()).send().unwrap();
+    res.json().unwrap()
 }

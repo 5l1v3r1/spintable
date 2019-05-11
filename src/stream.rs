@@ -1,75 +1,85 @@
+//!
+//! stream.rs
+//!
+//!     YouTube interaction helper module.
+//!
 use std::process::Command;
 use std::fs;
-use mpv;
 
-// Represents basis for URL before attaching videoID
+
+/// url endpoint used to append videoID
 static TARGET_URL: &'static str = "http://www.youtube.com/watch?v=";
 
 
 #[derive(Clone, Debug)]
 pub struct Youtube {
-    pub search_query: Option<String>,
-    url: Option<String>,
+    pub search_query:   Option<String>,
+    pub url:            Option<String>,
+    home_env:           String,
 }
 
 
+/// enum type that is returned from the
+/// self::process_target() helper function
 pub enum YTReturn {
-    Url,                // good!
-    StringTitle,        // good!
+    Url,
+    StringTitle,
 }
+
 
 impl Youtube {
 
+    /// initializes new Youtube struct for interaction. Passes
+    /// a target str that is processed
     pub fn new(target: &str) -> Result<Youtube, &'static str> {
-        // Important, used to determine if we actually need to call API or not.
-        match self::process_target(target) {
-
-            // If the target provided matches that of a StringTitle,
+        match self.process_target(target) {
             YTReturn::StringTitle => {
-
-                return Ok(Youtube {
-                    search_query: Some(String::from(target)),
-                    url: None
-                });
+                Ok(Youtube {
+                    search_query:   Some(String::from(target)),
+                    url:            None
+                })
             },
-
-            // If the target provided is in the format of a URL
             YTReturn::Url => {
-
-                return Ok(Youtube {
-                    search_query: None,
-                    url: Some(String::from(target))
-                });
+                Ok(Youtube {
+                    search_query:   None,
+                    url:            Some(String::from(target))
+                })
             }
         }
     }
 
-    pub fn add_url(&mut self, video_id: &String){
-        self.url = Some(format!("{}{}", TARGET_URL, video_id));
+    /// helper that parses target url
+    fn process_target(target: &str) -> YTReturn {
+        let check_url = vec![
+            "https://youtube.com", "http://youtube.com",
+            "https://www.youtube.com", "http://www.youtube.com",
+            "https://youtu.be", "http://youtu.be"];
 
+        for url in check_url.iter() {
+            if target.starts_with(url) {
+                return YTReturn::Url;
+            }
+        }
+        YTReturn::StringTitle
     }
 
 
-    pub fn download_mp3(&self, home_env: String){
+    fn add_url() -> String {
+    }
 
+
+    /// method for
+    pub fn download_mp3(&self) -> () {
         use std::path::Path;
 
-        // Create a new path for downloads
-        let download_path = format!("{}/.spintable/downloads/", home_env);
+        // initialize download path
+        let download_path = format!("{}/.spintable/downloads/", self.home_env);
         let path = Path::new(&download_path);
-
-        // Check if path already exists. If it doesn't create it.
-        match path.exists(){
-            false => {
-                println!("Directory doesn't exist. Creating.");
-                let _ = fs::create_dir(download_path.clone());
-            },
-            true => {},
+        if !path.exists() {
+            let _ = fs::create_dir(download_path.clone());
         }
 
-        println!("Starting download... May take a while.");
-
-        // Call youtube-dl as a command to download the file as an mp3
+        // initialize youtube-dl command to download mp3
         let target = self.url.as_ref();
         let out = Command::new("youtube-dl")
             .current_dir(download_path.clone())
@@ -79,70 +89,41 @@ impl Youtube {
                 "--audio-format", "mp3", target.unwrap()])
             .output()
             .expect("failed to execute process");
-
         let _ = out.stdout;
-
     }
 
-    pub fn start_streaming(&self) -> Result<&'static str, mpv::Error>{
 
-        // Create a new mpvHandler
-        let mut mpv_builder = mpv::MpvHandlerBuilder::new().expect("Failed to init MPV builder");
+    /// initializes a new MPV builder that streams mp3
+    pub fn start_streaming(&self) -> Result<(), mpv::Error> {
+
+        // initialize new builder with options
+        let mut mpv_builder = mpv::MpvHandlerBuilder::new().expect("failed to init MPV builder");
         mpv_builder.set_option("sid","no").unwrap();
-        mpv_builder.set_option("video", "no").expect("Failed to set option 'video' to 'no'");
+        mpv_builder.set_option("video", "no").expect("failed to set option 'video' to 'no'");
         mpv_builder.set_option("ytdl", true).unwrap();
         mpv_builder.set_option("osc", true).unwrap();
 
-        println!("Found URL: {:?}", self.url.clone().unwrap().as_str());
-
-        let mut mpv = mpv_builder.build().expect("Failed to build MPV handler");
-        mpv.command(&["loadfile", self.url.clone().unwrap().as_str()])
-            .expect("Error loading file");
-
+        // build command and call `loadfile` command`
+        let mut mpv = mpv_builder.build().expect("failed to build MPV handler");
+        mpv.command(&["loadfile", self.url]).expect("error loading file");
         mpv.set_property("loop", "1").unwrap();
         mpv.set_property("speed", "1").unwrap();
 
+        // mpv event loop
         'main: loop {
             while let Some(event) = mpv.wait_event(0.0) {
                 use mpv::Event::*;
                 match event {
-                    Shutdown => { break 'main; },
-                    StartFile => { println!("Starting stream..."); },
-                    FileLoaded => { println!("File loaded..."); },
-                    EndFile(e) => {
-                        if let Err(msg) = e {
-                            return Err(msg);
-                        } else {
-                            break 'main;
-                        }
-                    },
-                    _ => {}
+                    Shutdown    =>      { break 'main;                          },
+                    StartFile   =>      { println!("Starting stream...");       },
+                    FileLoaded  =>      { println!("File loaded...");           },
+                    EndFile(e)  =>      { if let Some(_) = e { break 'main; }   },
+                    _           =>      {}
                 };
             }
         }
-        Ok("Successfully streamed!")
+        Ok(())
     }
-
-}
-
-#[inline]
-fn process_target(target: &str) -> YTReturn {
-
-    // Youtube URLS
-    let check_url: Vec<&str> = vec![
-        "https://youtube.com", "http://youtube.com",
-        "https://www.youtube.com", "http://www.youtube.com",
-        "https://youtu.be", "http://youtu.be"];
-
-
-    for url in check_url.iter(){
-        // Check if check_urls are prepended
-        if target.starts_with(url){
-            return YTReturn::Url;
-        }
-    }
-
-    YTReturn::StringTitle
 }
 
 

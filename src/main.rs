@@ -1,72 +1,46 @@
 extern crate clap;
-extern crate termion;
 extern crate mpv;
-extern crate serde_json;
-extern crate serde;
 extern crate reqwest;
 
-#[macro_use]
-extern crate serde_derive;
+#[macro_use] extern crate serde;
 
 mod youtube;
 mod stream;
 
+use std::{fs, env};
 use std::error::Error;
-use std::fs;
+use std::path::Path;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::path::Path;
-use std::env;
 
-use termion::clear;
 use clap::{App, Arg, AppSettings};
 
 fn main(){
 
-    // Clear the entirety of the screen
-    println!("{}", clear::All);
-
-    // Stores api key from /root/.spintable/api.txt
-    let mut content: String = String::new();
-
-    // Store $HOME environmental variable
-    let home_env: String = match env::home_dir() {
-        Some(path) => String::from(path.to_str().unwrap()),
-        None => String::from("/root"),
+    // get $HOME and create config dir path
+    let home_env: String = match env::var_os("HOME") {
+        Some(path) => format!("{}/.spintable", path.to_str().unwrap()),
+        None       => { panic!("no $HOME variable set"); }
     };
+    let dir_path: String = format!("{}/.spintable", home_env);
+    let path = Path::new(dir_path.as_str());
 
-    // Final path to API keys
-    let api_path: String = format!("{}/.spintable/api.txt", home_env);
+    // create path if not exists
+    if !path.exists() {
+        let _ = fs::create_dir(dir_path.as_str());
+    }
 
-    // Create a new directory if not already exists.
-    let path = Path::new(api_path.as_str());
+    // open $HOME/.spintable/api
+    let mut file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .open(&path).unwrap();
 
-    // If the path already exists
-    match path.exists(){
-        true => {
-
-            // First, get the API file opened and the content stored and ready
-            // for request.
-            let display = path.display();
-            let mut file = match OpenOptions::new().read(true).write(true).create(true).open(&path){
-                Err(e) => {
-                    panic!("[ERROR] Couldn't open {}. Reason: {}", display,
-                    e.description());
-                },
-                Ok(file) => file
-            };
-
-            // Attempt to write API data to content String
-            match file.read_to_string(&mut content){
-                Err(e) => {
-                    println!("API File may be empty. Place key at $HOME/.spintable/api.txt");
-                    panic!("[ERROR] Couldn't read {}. Reason: {}", display,
-                    e.description());
-                },
-                Ok(_) => {},
-            }
-        },
-        false => { let _ = fs::create_dir("/root/.spintable"); },
+    // read to string
+    let mut content = String::new();
+    if let Err(e) = file.read_to_string(&mut content) {
+        panic!("{}", e.description());
     }
 
     // Argument parsing
@@ -86,10 +60,9 @@ fn main(){
             .help("Saves MP3 of downloaded video"))
         .get_matches();
 
+    // create Youtube object
     let target = args.value_of("target").unwrap();
-
-    // Create Youtube object
-    let mut yt = match stream::Youtube::new(target){
+    let mut yt = match stream::Youtube::new(target) {
         Ok(res) => res,
         Err(e) => panic!("[ERROR] {}", e)
     };
@@ -121,6 +94,5 @@ fn main(){
                 panic!("[ERROR] {:?}", e);
             }
         }
-
     }
 }
